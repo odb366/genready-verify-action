@@ -18,11 +18,11 @@ That third point is the design, and it is worth being clear about.
 
 A finding has to be all three of these before it will fail anything:
 
-|                        |                                                                                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Machine-checkable**  | Something with a definite answer, like whether GPTBot is allowed in `robots.txt`. Never a judgement call such as "this reads like AI wrote it". |
-| **High or critical**   | Not cosmetic.                                                                                                                                   |
-| **Already fixed once** | A previous check confirmed it working, and this change undid it.                                                                                |
+|                                                  |                                                                                                                                                 |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Deterministic** (`determinism: deterministic`) | Something with a definite answer, like whether GPTBot is allowed in `robots.txt`. Never a judgement call such as "this reads like AI wrote it". |
+| **High or critical**                             | Not cosmetic.                                                                                                                                   |
+| **Already fixed once**                           | A previous check confirmed it working, and this change undid it.                                                                                |
 
 So on your first run, nothing can fail. Nothing has been confirmed yet. The check earns the right to block you by first proving it was right.
 
@@ -76,7 +76,7 @@ Each scan uses one API credit.
 ### `fail-on`
 
 - **`regressed`** (default) — fails only on a confirmed fix that broke again. Safe to add to any repository today.
-- **`high`** — fails on any machine-checkable high or critical problem, whether or not it was ever fixed. Choose this once your site is clean and you want it kept that way.
+- **`high`** — fails on any deterministic high or critical problem, whether or not it was ever fixed. Choose this once your site is clean and you want it kept that way.
 - **`never`** — reports in the comment, never fails. A good way to watch it for a week before letting it block anything.
 
 ## Outputs
