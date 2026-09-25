@@ -1,0 +1,66 @@
+# The manifest GitHub reads. For Marketplace this file must sit at the ROOT of
+# a PUBLIC repository, so it is mirrored to one rather than published from here.
+# See README.md in this folder.
+name: 'GenReady AI Readiness Check'
+description: 'Fail a pull request that breaks how AI search engines and agents read your site.'
+author: 'GenReady'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  api-key:
+    description: 'GenReady API key. Store it as a repository secret and pass it here.'
+    required: true
+  url:
+    description: 'The URL to check, usually a deploy preview. Pass this or domain-id, not both. Uses one API credit.'
+    required: false
+  domain-id:
+    description: "Check a monitored domain's latest site analysis instead of scanning a URL. Free. Pass this or url, not both."
+    required: false
+  fail-on:
+    description: >-
+      When to fail the job. "regressed" (default) fails only on machine-checkable
+      problems that were confirmed fixed and came back. "high" fails on any
+      machine-checkable high or critical problem. "never" only reports.
+    required: false
+    default: 'regressed'
+  comment:
+    description: 'Post the result as a pull request comment, updating the previous one.'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'Token used to post the comment. The default job token is enough.'
+    required: false
+    default: ${{ github.token }}
+  api-url:
+    description: 'Override the API base URL. For testing against a staging deployment.'
+    required: false
+    default: 'https://genready.ai/api/v1'
+
+outputs:
+  findings-count:
+    description: 'How many findings the check returned.'
+    value: ${{ steps.genready.outputs.findings-count }}
+  blocking-count:
+    description: 'How many of them blocked the job.'
+    value: ${{ steps.genready.outputs.blocking-count }}
+  report-url:
+    description: 'Link to the full report, when a URL was scanned.'
+    value: ${{ steps.genready.outputs.report-url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - id: genready
+      shell: bash
+      run: node "${{ github.action_path }}/index.js"
+      env:
+        INPUT_API_KEY: ${{ inputs.api-key }}
+        INPUT_URL: ${{ inputs.url }}
+        INPUT_DOMAIN_ID: ${{ inputs.domain-id }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_COMMENT: ${{ inputs.comment }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_API_URL: ${{ inputs.api-url }}
