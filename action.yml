@@ -2,7 +2,7 @@
 # a PUBLIC repository, so it is mirrored to one rather than published from here.
 # See README.md in this folder.
 name: 'GenReady AI Readiness Check'
-description: 'Fail a pull request that breaks how AI search engines and agents read your site.'
+description: 'Checks every pull request for changes that stop AI search engines and agents reading your site.'
 author: 'GenReady'
 
 branding:

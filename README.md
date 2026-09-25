@@ -1,10 +1,43 @@
 # GenReady AI Readiness Check
 
-Fail a pull request that breaks how AI search engines and agents read your site.
+Checks every pull request for changes that stop AI search engines and agents reading your site.
 
-A deploy preview gets scanned, the result is posted on the pull request, and the job fails only when something that was **proven working before** is failing again. Nothing else blocks a merge.
+ChatGPT, Perplexity, Claude and the agents people now build all have to fetch and parse your pages before they can cite them. A routine change can quietly break that: a `robots.txt` rule that blocks GPTBot, a removed canonical, structured data that stops validating. Nothing looks wrong in a browser, so nobody notices until the traffic does.
 
-## Usage
+This runs on your pull requests and tells you.
+
+## What it does
+
+1. Scans a URL you give it, usually a deploy preview for that branch.
+2. Comments the result on the pull request, replacing its previous comment rather than adding another.
+3. Fails the job **only** when something that was confirmed working before is broken again.
+
+That third point is the design, and it is worth being clear about.
+
+## When it fails your build
+
+A finding has to be all three of these before it will fail anything:
+
+|                        |                                                                                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Machine-checkable**  | Something with a definite answer, like whether GPTBot is allowed in `robots.txt`. Never a judgement call such as "this reads like AI wrote it". |
+| **High or critical**   | Not cosmetic.                                                                                                                                   |
+| **Already fixed once** | A previous check confirmed it working, and this change undid it.                                                                                |
+
+So on your first run, nothing can fail. Nothing has been confirmed yet. The check earns the right to block you by first proving it was right.
+
+This is deliberate. A check that fails on day one is a check people turn off, and a check people turn off catches nothing. Everything that does not meet all three conditions is still reported in the comment; it just does not stop the merge.
+
+If you want a stricter gate once your site is clean, set `fail-on: high`.
+
+## Quick start
+
+**1. Create an API key** at [genready.ai/api-keys](https://genready.ai/api-keys).
+
+**2. Add it to your repository** as a secret named `GENREADY_API_KEY`:
+Settings → Secrets and variables → Actions → New repository secret.
+
+**3. Add the workflow** at `.github/workflows/ai-readiness.yml`:
 
 ```yaml
 name: AI readiness
@@ -21,51 +54,42 @@ jobs:
       - uses: odb366/genready-verify-action@v1
         with:
           api-key: ${{ secrets.GENREADY_API_KEY }}
-          url: ${{ steps.deploy.outputs.preview-url }}
+          url: https://your-site.com
 ```
 
-Create the API key at [genready.ai/api-keys](https://genready.ai/api-keys) and store it as a repository secret.
+Replace `url` with your deploy preview if you have one. Most hosts expose it as a step output, for example `${{ steps.deploy.outputs.preview-url }}` or your provider's equivalent.
 
-## What blocks a merge
+Each scan uses one API credit.
 
-Only findings that are all three of:
+## Options
 
-- **machine-checkable** (`determinism: deterministic`) - never a judgement call like "this reads like AI wrote it"
-- **high or critical** severity
-- **regressed**, meaning a check confirmed the fix worked and it is failing again
-
-That last one matters most. On the first run nothing can block, because nothing has been confirmed fixed yet. A check that fails on day one teaches a team to add `continue-on-error`, and then it catches nothing ever again.
-
-Everything else is reported in the comment and the job summary without failing the build.
-
-## Inputs
-
-| Input          | Required | Default             | Description                                                          |
-| -------------- | -------- | ------------------- | -------------------------------------------------------------------- |
-| `api-key`      | yes      |                     | Your GenReady API key, from a secret.                                |
-| `url`          | one of   |                     | URL to scan, usually a deploy preview. Uses one API credit.          |
-| `domain-id`    | one of   |                     | Check a monitored domain's latest site analysis instead. Free.       |
-| `fail-on`      | no       | `regressed`         | `regressed`, `high` or `never`. See below.                           |
-| `comment`      | no       | `true`              | Post the result on the pull request, replacing the previous comment. |
-| `github-token` | no       | `github.token`      | Token used for the comment.                                          |
-| `api-url`      | no       | GenReady production | Override the API base URL.                                           |
+| Input          | Required | Default             | What it does                                                              |
+| -------------- | -------- | ------------------- | ------------------------------------------------------------------------- |
+| `api-key`      | yes      |                     | Your GenReady API key, from a secret.                                     |
+| `url`          | one of   |                     | The URL to scan. Uses one credit.                                         |
+| `domain-id`    | one of   |                     | Read a monitored domain's latest site analysis instead of scanning. Free. |
+| `fail-on`      | no       | `regressed`         | `regressed`, `high`, or `never`. See below.                               |
+| `comment`      | no       | `true`              | Post the result on the pull request.                                      |
+| `github-token` | no       | `github.token`      | Used to post the comment. The default is fine.                            |
+| `api-url`      | no       | GenReady production | Point at a different API. For testing.                                    |
 
 ### `fail-on`
 
-- **`regressed`** (default) - only fixes that were confirmed and came back. Safe to adopt on any repo.
-- **`high`** - any machine-checkable high or critical problem, fixed before or not. Adopt this once a site is clean and you want to keep it that way.
-- **`never`** - report only, never fail.
+- **`regressed`** (default) — fails only on a confirmed fix that broke again. Safe to add to any repository today.
+- **`high`** — fails on any machine-checkable high or critical problem, whether or not it was ever fixed. Choose this once your site is clean and you want it kept that way.
+- **`never`** — reports in the comment, never fails. A good way to watch it for a week before letting it block anything.
 
 ## Outputs
 
-| Output           | Description                                      |
+| Output           | What it is                                       |
 | ---------------- | ------------------------------------------------ |
 | `findings-count` | How many findings came back.                     |
 | `blocking-count` | How many of them failed the job.                 |
 | `report-url`     | Link to the full report, when a URL was scanned. |
 
-## Notes
+## Good to know
 
-- No dependencies and no bundled `node_modules`: the Action is two plain ESM files run by the Node already on the runner.
-- The comment is replaced on each push rather than added to, so a long-running pull request gets one comment and not twenty.
-- If the comment cannot be posted (permissions vary by trigger) the job still reports through the step summary instead of failing.
+- **No dependencies.** Two plain JavaScript files and a manifest, run by the Node already on the runner. Nothing to install, nothing to audit.
+- **The comment is replaced, not repeated.** A long-running pull request gets one comment, kept current.
+- **A failed comment does not fail the build.** Comment permissions vary by trigger; if posting fails, the result is still in the job summary.
+- **Your key stays a secret.** It is never written to the log, including when GenReady rejects it.
